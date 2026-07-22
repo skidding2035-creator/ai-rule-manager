@@ -1,7 +1,7 @@
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import { ListResourcesRequestSchema, ListPromptsRequestSchema } from '@modelcontextprotocol/sdk/types.js'
 import { z } from 'zod'
-import { listRules, getRule, listCategories, listProjects, proposeRule } from './rules.mjs'
+import { listRules, getRule, listCategories, listProjects, proposeRule, proposeRuleUpdate } from './rules.mjs'
 
 const PLATFORM_ENUM = ['chatgpt', 'claude', 'gemini', 'copilot', 'common']
 const STATUS_ENUM = ['active', 'draft', 'pending_approval', 'stopped', 'rejected']
@@ -125,6 +125,27 @@ export function createServer() {
     async ({ title, content, category, tags, platforms, project }) => {
       try {
         return textResult(await proposeRule({ title, content, category, tags, platforms, project }))
+      } catch (error) {
+        return errorResult(error)
+      }
+    },
+  )
+
+  server.registerTool(
+    'propose_rule_update',
+    {
+      title: 'Propose a content update for an existing rule',
+      description:
+        'Submits corrected content for an EXISTING active rule — e.g. after fact-checking it during a conversation. This ALWAYS lands as a pending revision in AI Rule Manager\'s Approval Center and is never auto-applied: the rule keeps serving its current content to every AI platform until a human approves the change. Call get_rule first to see the current content before proposing a correction.',
+      inputSchema: {
+        code: z.string().describe('The rule code to update, e.g. "IMG-001"'),
+        content: z.string().describe('The corrected/updated rule text'),
+        comment: z.string().optional().describe('Short reason for the change, e.g. what was fact-checked and why'),
+      },
+    },
+    async ({ code, content, comment }) => {
+      try {
+        return textResult(await proposeRuleUpdate({ code, content, comment }))
       } catch (error) {
         return errorResult(error)
       }

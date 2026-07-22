@@ -16,6 +16,7 @@ function buildVersionHistory(rule: Rule): RuleVersionEntry[] {
   for (let i = 0; i <= minor; i++) {
     const isCurrent = i === minor
     entries.push({
+      id: `${rule.id}-v${major}.${i}`,
       version: `v${major}.${i}`,
       content: rule.content,
       status: isCurrent ? rule.status : 'active',

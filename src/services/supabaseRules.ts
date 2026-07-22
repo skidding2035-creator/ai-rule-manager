@@ -1,6 +1,7 @@
 import type {
   AIPlatformId,
   Category,
+  PendingRevision,
   Rule,
   RulePriority,
   RuleVersionEntry,
@@ -54,6 +55,8 @@ function rowToRule(row: RuleRow): Rule {
 }
 
 interface VersionRow {
+  id: string
+  rule_id: string
   version: string
   content: string
   status: RuleStatus
@@ -64,6 +67,7 @@ interface VersionRow {
 
 function rowToVersion(row: VersionRow): RuleVersionEntry {
   return {
+    id: row.id,
     version: row.version,
     content: row.content,
     status: row.status,
@@ -112,12 +116,46 @@ async function fetchAllHistory(): Promise<StatusHistoryEntry[]> {
   })
 }
 
+// A rule's most recent rule_versions row being "pending_approval" while the
+// rule itself is still "active" is exactly what propose_rule_update (the MCP
+// server's fact-check flow) produces: it inserts a new version row without
+// touching the rule's own content/status, so the rule keeps serving its
+// current content to every AI platform until a human approves or rejects it.
+async function fetchPendingRevisions(): Promise<PendingRevision[]> {
+  const projectRules = await fetchProjectRules()
+  const activeRules = projectRules.filter((r) => r.status === 'active')
+  if (activeRules.length === 0) return []
+
+  const { data, error } = await supabase!
+    .from('rule_versions')
+    .select('*')
+    .in(
+      'rule_id',
+      activeRules.map((r) => r.id),
+    )
+    .order('created_at', { ascending: false })
+  if (error) throw new Error(error.message)
+
+  const ruleById = new Map(activeRules.map((r) => [r.id, r]))
+  const seenRuleIds = new Set<string>()
+  const result: PendingRevision[] = []
+  for (const row of data as VersionRow[]) {
+    if (seenRuleIds.has(row.rule_id)) continue // only the latest version per rule matters
+    seenRuleIds.add(row.rule_id)
+    if (row.status !== 'pending_approval') continue
+    const rule = ruleById.get(row.rule_id)
+    if (rule) result.push({ rule, revision: rowToVersion(row) })
+  }
+  return result
+}
+
 export const supabaseRuleService: RuleService = {
   getDashboardSummary: async () => {
-    const [projectRules, categories, allHistory, aiConnections] = await Promise.all([
+    const [projectRules, categories, allHistory, pendingRevisions, aiConnections] = await Promise.all([
       fetchProjectRules(),
       fetchCategories(),
       fetchAllHistory(),
+      fetchPendingRevisions(),
       supabaseSettingsService.getAIConnections(),
     ])
     return {
@@ -125,7 +163,7 @@ export const supabaseRuleService: RuleService = {
       kpis: {
         ...mockDashboardSummary.kpis,
         ...computeRuleKpis(projectRules),
-        pendingApproval: projectRules.filter((r) => r.status === 'pending_approval').length,
+        pendingApproval: projectRules.filter((r) => r.status === 'pending_approval').length + pendingRevisions.length,
         categoryCount: categories.length,
       },
       categories: computeCategoryStats(projectRules, categories),
@@ -239,4 +277,35 @@ export const supabaseRuleService: RuleService = {
     return rowToRule(data)
   },
   getAllHistory: () => fetchAllHistory(),
+  getPendingRevisions: () => fetchPendingRevisions(),
+  approveRevision: async (revisionId) => {
+    const { data: revisionRow, error: revisionError } = await supabase!
+      .from('rule_versions')
+      .select('*')
+      .eq('id', revisionId)
+      .maybeSingle()
+    if (revisionError) throw new Error(revisionError.message)
+    if (!revisionRow) return undefined
+
+    const nowIso = new Date().toISOString()
+    const { data, error } = await supabase!
+      .from('rules')
+      .update({ version: revisionRow.version, content: revisionRow.content, updated_at: nowIso })
+      .eq('id', revisionRow.rule_id)
+      .select()
+      .maybeSingle()
+    if (error) throw new Error(error.message)
+    if (!data) return undefined
+
+    const { error: statusError } = await supabase!.from('rule_versions').update({ status: 'active' }).eq('id', revisionId)
+    if (statusError) throw new Error(statusError.message)
+
+    notifyRuleChanges()
+    return rowToRule(data)
+  },
+  rejectRevision: async (revisionId) => {
+    const { error } = await supabase!.from('rule_versions').update({ status: 'rejected' }).eq('id', revisionId)
+    if (error) throw new Error(error.message)
+    notifyRuleChanges()
+  },
 }

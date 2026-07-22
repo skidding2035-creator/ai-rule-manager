@@ -1,4 +1,13 @@
-import type { AIPlatformId, DashboardSummary, Rule, RulePriority, RuleVersionEntry, RuleStatus, StatusHistoryEntry } from '@/types'
+import type {
+  AIPlatformId,
+  DashboardSummary,
+  PendingRevision,
+  Rule,
+  RulePriority,
+  RuleVersionEntry,
+  RuleStatus,
+  StatusHistoryEntry,
+} from '@/types'
 import { mockDashboardSummary } from '@/mock/dashboardSummary'
 import { rules, notifyRuleChanges } from '@/mock/rules'
 import { ruleVersionHistory } from '@/mock/ruleVersions'
@@ -39,6 +48,26 @@ export interface RuleService {
   deleteRule(id: string): Promise<void>
   createRule(input: NewRuleInput): Promise<Rule>
   getAllHistory(): Promise<StatusHistoryEntry[]>
+  // Rules with an unresolved AI-proposed content revision (e.g. from the MCP
+  // server's propose_rule_update / fact-check flow) — the rule itself keeps
+  // serving its current content until one of these is approved or rejected.
+  getPendingRevisions(): Promise<PendingRevision[]>
+  approveRevision(revisionId: string): Promise<Rule | undefined>
+  rejectRevision(revisionId: string): Promise<void>
+}
+
+// A rule's latest version entry being "pending_approval" while the rule
+// itself is still "active" is exactly what propose_rule_update (MCP fact-check
+// flow) and its Supabase counterpart produce — see supabaseRules.ts's
+// getPendingRevisions for the live-data equivalent of this scan.
+function pendingRevisionsFor(projectRules: Rule[]): PendingRevision[] {
+  const result: PendingRevision[] = []
+  for (const rule of projectRules) {
+    if (rule.status !== 'active') continue
+    const latest = (ruleVersionHistory[rule.id] ?? [])[0]
+    if (latest && latest.status === 'pending_approval') result.push({ rule, revision: latest })
+  }
+  return result
 }
 
 export const mockRuleService: RuleService = {
@@ -51,7 +80,8 @@ export const mockRuleService: RuleService = {
           kpis: {
             ...mockDashboardSummary.kpis,
             ...computeRuleKpis(projectRules),
-            pendingApproval: projectRules.filter((r) => r.status === 'pending_approval').length,
+            pendingApproval:
+              projectRules.filter((r) => r.status === 'pending_approval').length + pendingRevisionsFor(projectRules).length,
             categoryCount: categories.length,
           },
           categories: computeCategoryStats(projectRules, categories),
@@ -90,6 +120,7 @@ export const mockRuleService: RuleService = {
           rule.updatedAt = 'たった今'
           const history = ruleVersionHistory[id] ?? []
           history.unshift({
+            id: crypto.randomUUID(),
             version: input.version,
             content: input.content,
             status: input.status,
@@ -133,6 +164,7 @@ export const mockRuleService: RuleService = {
         rules.unshift(rule)
         ruleVersionHistory[rule.id] = [
           {
+            id: crypto.randomUUID(),
             version: 'v1.0',
             content: input.content,
             status: 'active',
@@ -150,6 +182,42 @@ export const mockRuleService: RuleService = {
       setTimeout(() => {
         const projectRules = filterForActiveProject(rules, getActiveProjectId())
         resolve(getAllHistoryEntries(projectRules, ruleVersionHistory, categories))
+      }, 200),
+    ),
+  getPendingRevisions: () =>
+    new Promise((resolve) =>
+      setTimeout(() => resolve(pendingRevisionsFor(filterForActiveProject(rules, getActiveProjectId()))), 200),
+    ),
+  approveRevision: (revisionId) =>
+    new Promise((resolve) =>
+      setTimeout(() => {
+        for (const rule of rules) {
+          const revision = (ruleVersionHistory[rule.id] ?? []).find((v) => v.id === revisionId)
+          if (revision) {
+            rule.version = revision.version
+            rule.content = revision.content
+            rule.updatedAt = 'たった今'
+            revision.status = 'active'
+            notifyRuleChanges()
+            resolve(rule)
+            return
+          }
+        }
+        resolve(undefined)
+      }, 200),
+    ),
+  rejectRevision: (revisionId) =>
+    new Promise((resolve) =>
+      setTimeout(() => {
+        for (const history of Object.values(ruleVersionHistory)) {
+          const revision = history.find((v) => v.id === revisionId)
+          if (revision) {
+            revision.status = 'rejected'
+            break
+          }
+        }
+        notifyRuleChanges()
+        resolve()
       }, 200),
     ),
 }

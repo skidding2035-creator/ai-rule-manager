@@ -101,6 +101,15 @@ export async function getRule({ code }) {
   }
 }
 
+// Same algorithm as src/pages/RuleDetailPage.tsx's bumpVersion: increment the
+// minor version (v1.0 -> v1.1). Falls back to returning the version
+// unchanged if it doesn't match the vX.Y pattern, same as the frontend.
+function bumpVersion(version) {
+  const match = version.match(/^v(\d+)\.(\d+)$/)
+  if (!match) return version
+  return `v${match[1]}.${Number(match[2]) + 1}`
+}
+
 // Same algorithm as src/lib/ruleStats.ts's getNextRuleCode: scan existing
 // codes for this category's prefix, take the highest trailing number + 1.
 async function nextRuleCode(categoryId, codePrefix) {
@@ -179,5 +188,56 @@ export async function proposeRule({ title, content, category, tags = [], platfor
     code: rule.code,
     status: rule.status,
     message: `Proposed rule ${rule.code} — awaiting human approval in the Approval Center.`,
+  }
+}
+
+// Proposes a corrected content for an EXISTING active rule (e.g. after
+// fact-checking it) without touching the rule's live content — a new
+// rule_versions row is inserted with status pending_approval, so the rule
+// keeps serving its current, unmodified content to every AI platform via
+// list_rules/get_rule until a human approves or rejects the change in the
+// app's Approval Center. This is the update counterpart to proposeRule
+// above, which only ever creates brand-new rules.
+export async function proposeRuleUpdate({ code, content, comment = 'AIによるファクトチェック修正' }) {
+  const { data: rule, error } = await supabase.from('rules').select('*').eq('code', code).maybeSingle()
+  if (error) throw new Error(error.message)
+  if (!rule) throw new Error(`No rule found with code "${code}". Call list_rules or get_rule first.`)
+  if (rule.status !== 'active') {
+    throw new Error(
+      `Rule "${code}" is not active (status: ${rule.status}) — content updates can only be proposed for active rules.`,
+    )
+  }
+  if (content === rule.content) {
+    throw new Error('The proposed content is identical to the current content — nothing to update.')
+  }
+
+  const { data: latestVersion, error: latestError } = await supabase
+    .from('rule_versions')
+    .select('status')
+    .eq('rule_id', rule.id)
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+  if (latestError) throw new Error(latestError.message)
+  if (latestVersion?.status === 'pending_approval') {
+    throw new Error(`Rule "${code}" already has a pending revision awaiting approval in the Approval Center.`)
+  }
+
+  const proposedVersion = bumpVersion(rule.version)
+  const { error: versionError } = await supabase.from('rule_versions').insert({
+    rule_id: rule.id,
+    version: proposedVersion,
+    content,
+    status: 'pending_approval',
+    changed_by: 'AI提案(ファクトチェック)',
+    comment,
+  })
+  if (versionError) throw new Error(versionError.message)
+
+  return {
+    code: rule.code,
+    currentVersion: rule.version,
+    proposedVersion,
+    message: `Proposed a content update for rule ${rule.code} (${rule.version} → ${proposedVersion}) — awaiting human approval in the Approval Center. The rule keeps serving its current content until then.`,
   }
 }

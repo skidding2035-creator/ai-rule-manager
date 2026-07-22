@@ -40,12 +40,22 @@ export interface Rule {
 }
 
 export interface RuleVersionEntry {
+  id: string
   version: string
   content: string
   status: RuleStatus
   changedBy: string
   comment: string
   timestamp: string
+}
+
+// A rule_versions row with status "pending_approval" whose parent rule is
+// still "active" — the rule keeps serving its current content to every AI
+// platform until a human approves or rejects this proposed replacement.
+// Created by the MCP server's propose_rule_update tool (AI fact-check flow).
+export interface PendingRevision {
+  rule: Rule
+  revision: RuleVersionEntry
 }
 
 export interface StatusHistoryEntry {

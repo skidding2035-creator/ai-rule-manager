@@ -4,6 +4,7 @@ Exposes the rules stored in AI Rule Manager to AI platforms over [MCP](https://m
 
 - **Read** the active rules they should follow (`list_rules`, `get_rule`, `list_categories`, `list_projects`)
 - **Propose** new rules (`propose_rule`) — these always land as `pending_approval` in the app's Approval Center. Nothing an AI proposes is ever auto-activated; a human has to approve it in the app first, same as any other pending rule.
+- **Propose a fix to an existing rule** (`propose_rule_update`) — for when an AI fact-checks a rule it just read via `get_rule` and finds it's outdated or wrong. This never overwrites the live rule directly: it inserts a pending revision that shows up in the Approval Center, and the rule keeps serving its current content to every AI platform until a human approves or rejects the fix. Because the fact-check itself is just the connected AI reasoning over text it already has (no separate API call), this costs nothing beyond whatever you're already paying for that AI's chat/subscription.
 
 It reads credentials from the project root's `.env`:
 
