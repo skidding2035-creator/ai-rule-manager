@@ -81,7 +81,9 @@ async function handleSessionRequest(req, res) {
 app.get('/mcp', handleSessionRequest)
 app.delete('/mcp', handleSessionRequest)
 
-const port = process.env.MCP_HTTP_PORT || 8787
+// Render (and most PaaS hosts) assign the port via PORT and require the app
+// to bind to it; MCP_HTTP_PORT stays as the local-dev override.
+const port = process.env.PORT || process.env.MCP_HTTP_PORT || 8787
 app.listen(port, () => {
   console.log(`AI Rule Manager MCP server (HTTP) listening on http://localhost:${port}/mcp`)
 })
