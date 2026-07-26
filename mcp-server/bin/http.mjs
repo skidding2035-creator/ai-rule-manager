@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 import express from 'express'
+import cors from 'cors'
 import { randomUUID, timingSafeEqual } from 'node:crypto'
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js'
 import { isInitializeRequest } from '@modelcontextprotocol/sdk/types.js'
@@ -12,6 +13,21 @@ import { createServer } from '../src/server.mjs'
 // writes to the database.
 const app = express()
 app.use(express.json())
+
+// ChatGPT validates a custom connector's URL from the browser (not just
+// server-to-server) when you click "作成する" — without CORS headers the
+// browser silently blocks that check and connector creation fails with a
+// generic error, even though the server itself is healthy. The `?token=`
+// query param is the real access control here, so a permissive origin is
+// fine — this isn't a security boundary CORS needs to enforce.
+app.use(
+  cors({
+    origin: true,
+    methods: ['GET', 'POST', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'mcp-session-id', 'Accept'],
+    exposedHeaders: ['mcp-session-id'],
+  }),
+)
 
 function safeEqual(a, b) {
   const bufA = Buffer.from(a)
