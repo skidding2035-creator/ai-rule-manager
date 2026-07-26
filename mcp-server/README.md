@@ -49,14 +49,24 @@ Add:
 
 ## ChatGPT (Settings → Connectors)
 
-ChatGPT connects to **remote** MCP servers only (no local stdio) — this needs `mcp-server/bin/http.mjs` running somewhere reachable over HTTPS.
+ChatGPT connects to **remote** MCP servers only (no local stdio) — `mcp-server/bin/http.mjs` needs to be reachable over HTTPS.
 
-This repo uses a free [ngrok](https://ngrok.com) static domain (`earring-swimmer-barista.ngrok-free.dev`) so the public URL never changes between runs — the ChatGPT connector only needs to be configured **once**, not re-pasted every time the tunnel restarts. This is a stopgap until the server has a real always-on deployment (Render/Fly.io); until then, the tunnel only works while both of the commands below are running on this machine.
+### Primary: Render (always-on, no PC dependency)
+
+This repo is deployed as a Render Web Service at `https://ai-rule-manager-1.onrender.com` (Root Directory `mcp-server`, Build Command `npm install`, Start Command `npm run start:http`, env vars `VITE_SUPABASE_URL` / `SUPABASE_SERVICE_ROLE_KEY` / `MCP_SHARED_SECRET`). Because it's hosted, not run from a local terminal, it works from any PC/device regardless of whether this machine is on — this is what ChatGPT (and Claude Desktop on other machines) should point at day to day.
+
+In ChatGPT: Settings → Connectors → Add custom connector → paste the URL **with the token appended**: `https://ai-rule-manager-1.onrender.com/mcp?token=<your MCP_SHARED_SECRET>` (auth-type: "認証なし"/none — the token rides in the URL itself). This only needs to be entered once.
+
+Render's free tier spins the service down after ~15 minutes of no traffic (first request after that takes 50+ seconds). `.github/workflows/keep-mcp-server-awake.yml` pings it every 10 minutes to prevent that — no action needed unless that workflow is disabled.
+
+### Fallback: local + ngrok tunnel (this machine only)
+
+For local development/debugging, or if Render is ever down: this repo also has a free [ngrok](https://ngrok.com) static domain (`earring-swimmer-barista.ngrok-free.dev`) so the tunnel URL doesn't change between runs, but it only works while both commands below are running **on this machine**:
 
 1. Set `MCP_SHARED_SECRET` in `.env` (see above) — the HTTP transport rejects every request without it.
 2. Start the HTTP server: `npm run start:http` (defaults to `http://localhost:8787/mcp`, local-only).
-3. In a second terminal, start the tunnel: `npm run tunnel` (wraps `ngrok http --url=earring-swimmer-barista.ngrok-free.dev 8787`). This is safe to expose *because* of the token from step 1 — without it, anyone who found the URL could call `propose_rule` and spam the Approval Center.
-4. In ChatGPT: Settings → Connectors → Add custom connector → paste the URL **with the token appended**: `https://earring-swimmer-barista.ngrok-free.dev/mcp?token=<your MCP_SHARED_SECRET>` (its auth-type dropdown only offers OAuth or none — leave it on "認証なし"/none, the token rides in the URL itself). Since the domain is fixed, this only needs to be entered once — future sessions just need steps 1–3 running again.
+3. In a second terminal, start the tunnel: `npm run tunnel` (wraps `ngrok http --url=earring-swimmer-barista.ngrok-free.dev 8787`).
+4. Point the ChatGPT connector at `https://earring-swimmer-barista.ngrok-free.dev/mcp?token=<your MCP_SHARED_SECRET>` instead of the Render URL while doing this.
 
 ## Manual smoke test (no MCP client needed)
 

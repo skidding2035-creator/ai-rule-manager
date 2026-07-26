@@ -1,0 +1,21 @@
+name: Keep MCP server awake
+
+# Render's free tier spins down a web service after ~15 minutes with no
+# traffic, and the next request then takes 50+ seconds while it restarts.
+# This pings the server every 10 minutes — comfortably inside that window —
+# so it never sits idle long enough to spin down, even if nobody uses
+# ChatGPT/Claude against it for hours. No -f flag: any HTTP response (even
+# a 401/404) proves the server is awake, so we don't want curl to "fail"
+# the job just because the ping itself wasn't an authenticated request.
+on:
+  schedule:
+    - cron: '*/10 * * * *'
+  workflow_dispatch: {}
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping MCP server
+        run: |
+          curl -s -o /dev/null -w "status: %{http_code}\n" https://ai-rule-manager-1.onrender.com/mcp
