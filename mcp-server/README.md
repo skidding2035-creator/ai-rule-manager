@@ -49,12 +49,14 @@ Add:
 
 ## ChatGPT (Settings → Connectors)
 
-ChatGPT connects to **remote** MCP servers only (no local stdio) — this needs `mcp-server/bin/http.mjs` running somewhere reachable over HTTPS, which this project doesn't set up by itself yet:
+ChatGPT connects to **remote** MCP servers only (no local stdio) — this needs `mcp-server/bin/http.mjs` running somewhere reachable over HTTPS.
+
+This repo uses a free [ngrok](https://ngrok.com) static domain (`earring-swimmer-barista.ngrok-free.dev`) so the public URL never changes between runs — the ChatGPT connector only needs to be configured **once**, not re-pasted every time the tunnel restarts. This is a stopgap until the server has a real always-on deployment (Render/Fly.io); until then, the tunnel only works while both of the commands below are running on this machine.
 
 1. Set `MCP_SHARED_SECRET` in `.env` (see above) — the HTTP transport rejects every request without it.
 2. Start the HTTP server: `npm run start:http` (defaults to `http://localhost:8787/mcp`, local-only).
-3. To make it reachable by ChatGPT, expose that port publicly — either a tunnel (e.g. `ngrok http 8787`) for quick testing, or a real deployment for anything longer-lived. This is safe to do *because* of the token from step 1 — without it, anyone who found the URL could call `propose_rule` and spam the Approval Center. Still decide this step deliberately — it's not done automatically.
-4. In ChatGPT: Settings → Connectors → Add custom connector → paste the URL **with the token appended**: `https://.../mcp?token=<your MCP_SHARED_SECRET>` (its auth-type dropdown only offers OAuth or none — leave it on "認証なし"/none, the token rides in the URL itself).
+3. In a second terminal, start the tunnel: `npm run tunnel` (wraps `ngrok http --url=earring-swimmer-barista.ngrok-free.dev 8787`). This is safe to expose *because* of the token from step 1 — without it, anyone who found the URL could call `propose_rule` and spam the Approval Center.
+4. In ChatGPT: Settings → Connectors → Add custom connector → paste the URL **with the token appended**: `https://earring-swimmer-barista.ngrok-free.dev/mcp?token=<your MCP_SHARED_SECRET>` (its auth-type dropdown only offers OAuth or none — leave it on "認証なし"/none, the token rides in the URL itself). Since the domain is fixed, this only needs to be entered once — future sessions just need steps 1–3 running again.
 
 ## Manual smoke test (no MCP client needed)
 

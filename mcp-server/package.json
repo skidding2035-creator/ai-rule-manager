@@ -6,7 +6,8 @@
   "description": "MCP server exposing AI Rule Manager's rules to Claude/ChatGPT: read active rules, propose new ones for approval.",
   "scripts": {
     "start": "node bin/stdio.mjs",
-    "start:http": "node bin/http.mjs"
+    "start:http": "node bin/http.mjs",
+    "tunnel": "ngrok http --url=earring-swimmer-barista.ngrok-free.dev 8787"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.29.0",
