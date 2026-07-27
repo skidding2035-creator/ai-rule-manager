@@ -13,6 +13,7 @@ import { Modal } from '@/components/ui/Modal'
 import { FilterBar } from '@/components/rules/FilterBar'
 import { dotClasses, aiPlatformLabels } from '@/lib/colors'
 import { STATUS_ORDER, PRIORITY_ORDER } from '@/lib/ruleStats'
+import { useActiveProjectId } from '@/hooks/useActiveProjectId'
 
 interface RuleListFilters {
   search: string
@@ -41,6 +42,7 @@ export function RuleListPage() {
   const [filters, setFilters] = useState<RuleListFilters>(persistedFilters)
   const [deleteTarget, setDeleteTarget] = useState<Rule | null>(null)
   const { search, categoryFilter, statusFilter, priorityFilter, aiFilter } = filters
+  const activeProjectId = useActiveProjectId()
 
   useEffect(() => {
     persistedFilters = filters
@@ -61,7 +63,10 @@ export function RuleListPage() {
     return () => {
       cancelled = true
     }
-  }, [])
+    // Re-fetch when the sidebar's active project changes — getRules() is
+    // already scoped to it server-side, so this is what makes switching
+    // projects actually refresh the list instead of leaving stale rows.
+  }, [activeProjectId])
 
   const categoryName = (id: string) => categories.find((c) => c.id === id)?.name ?? id
   const categoryColor = (id: string) => categories.find((c) => c.id === id)?.color ?? 'gray'

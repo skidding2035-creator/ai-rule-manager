@@ -7,7 +7,7 @@ import { subscribeToConnectionChanges } from '@/mock/aiConnections'
 import { syncStatus } from '@/mock/syncStatus'
 import { subscribeToRuleChanges } from '@/mock/rules'
 import { ALL_ACCENT_COLORS } from '@/mock/categories'
-import { subscribeToProjectChanges } from '@/mock/projects'
+import { subscribeToProjectChanges, SHARED_PROJECT_VALUE } from '@/mock/projects'
 import { getRuleService } from '@/services/rules'
 import { getSettingsService } from '@/services/settings'
 import { getProjectService } from '@/services/projects'
@@ -133,13 +133,24 @@ export function Sidebar() {
         >
           <span className="flex min-w-0 items-center gap-2">
             <span className={`h-2 w-2 shrink-0 rounded-full ${dotClasses[activeProject?.color ?? 'gray']}`} />
-            <span className="truncate text-gray-200">{activeProject?.name ?? 'プロジェクトを選択'}</span>
+            <span className="truncate text-gray-200">
+              {activeProjectId === SHARED_PROJECT_VALUE ? '全体共通' : (activeProject?.name ?? 'プロジェクトを選択')}
+            </span>
           </span>
           <ChevronDown className="h-4 w-4 shrink-0 text-gray-500" />
         </button>
 
         {switcherOpen && (
           <div className="absolute left-3 right-3 top-full z-10 mt-1 rounded-lg border border-border bg-card py-1 shadow-lg">
+            <button
+              onClick={() => selectProject(SHARED_PROJECT_VALUE)}
+              className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-gray-300 hover:bg-white/5"
+            >
+              <span className="h-2 w-2 shrink-0 rounded-full bg-gray-500" />
+              <span className="min-w-0 flex-1 truncate">全体共通</span>
+              {activeProjectId === SHARED_PROJECT_VALUE && <Check className="h-3.5 w-3.5 shrink-0 text-accent-blue" />}
+            </button>
+            <div className="my-1 border-t border-border" />
             {projects.map((p) => (
               <button
                 key={p.id}

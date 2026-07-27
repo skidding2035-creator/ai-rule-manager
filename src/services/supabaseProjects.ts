@@ -1,6 +1,12 @@
 import type { Project } from '@/types'
 import { supabase } from '@/lib/supabaseClient'
-import { getActiveProjectId, setActiveProjectId, subscribeToActiveProject, notifyProjectChanges } from '@/mock/projects'
+import {
+  getActiveProjectId,
+  setActiveProjectId,
+  subscribeToActiveProject,
+  notifyProjectChanges,
+  SHARED_PROJECT_VALUE,
+} from '@/mock/projects'
 import type { ProjectService } from './projects'
 
 function rowToProject(row: { id: string; name: string; color: Project['color'] }): Project {
@@ -16,8 +22,11 @@ export const supabaseProjectService: ProjectService = {
     // hardcoded string id (e.g. "gworks"), which never matches a real
     // Supabase-generated UUID — self-heal to the first real project so the
     // switcher isn't stuck on "no project selected" the first time this
-    // backend loads.
-    if (list.length > 0 && !list.some((p) => p.id === getActiveProjectId())) {
+    // backend loads. SHARED_PROJECT_VALUE ("全体共通") is a deliberate,
+    // permanent choice — never a real project id, so it must never trigger
+    // this heal.
+    const activeId = getActiveProjectId()
+    if (list.length > 0 && activeId !== SHARED_PROJECT_VALUE && !list.some((p) => p.id === activeId)) {
       setActiveProjectId(list[0].id)
     }
     return list

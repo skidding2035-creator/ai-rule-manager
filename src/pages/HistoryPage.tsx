@@ -10,6 +10,7 @@ import { Table, type TableColumn } from '@/components/ui/Table'
 import { StatusPill } from '@/components/ui/StatusPill'
 import { Select } from '@/components/ui/Select'
 import { statusLabels } from '@/lib/colors'
+import { useActiveProjectId } from '@/hooks/useActiveProjectId'
 
 export function HistoryPage() {
   const navigate = useNavigate()
@@ -18,6 +19,7 @@ export function HistoryPage() {
   const [search, setSearch] = useState('')
   const [categoryFilter, setCategoryFilter] = useState('all')
   const [statusFilter, setStatusFilter] = useState('all')
+  const activeProjectId = useActiveProjectId()
 
   useEffect(() => {
     let cancelled = false
@@ -29,7 +31,7 @@ export function HistoryPage() {
     return () => {
       cancelled = true
     }
-  }, [])
+  }, [activeProjectId])
 
   const filteredEntries = useMemo(() => {
     if (!entries) return []

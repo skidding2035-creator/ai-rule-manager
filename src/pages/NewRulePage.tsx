@@ -4,6 +4,7 @@ import type { AIPlatformId, Category, Project, Rule, RulePriority } from '@/type
 import { getRuleService } from '@/services/rules'
 import { getCategoryService } from '@/services/categories'
 import { getProjectService } from '@/services/projects'
+import { SHARED_PROJECT_VALUE } from '@/mock/projects'
 import { TopBar } from '@/components/layout/TopBar'
 import { Card } from '@/components/ui/Card'
 import { Select } from '@/components/ui/Select'
@@ -11,8 +12,8 @@ import { ApprovalReviewModal } from '@/components/rules/ApprovalReviewModal'
 import { aiPlatformLabels, priorityLabels } from '@/lib/colors'
 import { getNextRuleCode } from '@/lib/ruleStats'
 
+export { SHARED_PROJECT_VALUE }
 export const ALL_PLATFORMS: AIPlatformId[] = ['chatgpt', 'claude', 'gemini', 'copilot', 'common']
-export const SHARED_PROJECT_VALUE = '__shared__'
 
 interface DraftState {
   title: string

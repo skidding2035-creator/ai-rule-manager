@@ -8,6 +8,7 @@ import { Table, type TableColumn } from '@/components/ui/Table'
 import { DonutChart } from '@/components/ui/charts/DonutChart'
 import { dotClasses, statusAccentColor, statusLabels } from '@/lib/colors'
 import { countByStatus, countByPriority, countByPlatform, countByCategory, type CategoryBreakdown } from '@/lib/ruleStats'
+import { useActiveProjectId } from '@/hooks/useActiveProjectId'
 
 function BarList({ items, max }: { items: { key: string; label: string; count: number }[]; max: number }) {
   return (
@@ -30,6 +31,7 @@ function BarList({ items, max }: { items: { key: string; label: string; count: n
 export function AnalyticsPage() {
   const [rules, setRules] = useState<Rule[] | null>(null)
   const [categories, setCategories] = useState<Category[]>([])
+  const activeProjectId = useActiveProjectId()
 
   useEffect(() => {
     let cancelled = false
@@ -41,7 +43,7 @@ export function AnalyticsPage() {
     return () => {
       cancelled = true
     }
-  }, [])
+  }, [activeProjectId])
 
   const statusCounts = useMemo(() => (rules ? countByStatus(rules) : null), [rules])
   const priorityCounts = useMemo(() => (rules ? countByPriority(rules) : null), [rules])
