@@ -34,6 +34,13 @@ export interface UpdateRuleContentInput {
   content: string
   status: RuleStatus
   comment: string
+  // Optional: only rewritten when provided, so plain content edits and
+  // rollbacks (which don't pass these) leave the rule's metadata untouched.
+  categoryId?: string
+  projectId?: string | null
+  priority?: RulePriority
+  tags?: string[]
+  aiPlatforms?: AIPlatformId[]
 }
 
 export interface RuleService {
@@ -106,7 +113,11 @@ export const mockRuleService: RuleService = {
           if (history?.[0]) history[0] = { ...history[0], status }
           notifyRuleChanges()
         }
-        resolve(rule)
+        // Resolve a fresh copy, not the same mutated reference — callers
+        // that do setState(resolvedRule) need a new reference or React's
+        // Object.is check silently skips the re-render even though the
+        // underlying fields did change.
+        resolve(rule ? { ...rule } : undefined)
       }, 200),
     ),
   updateRuleContent: (id, input) =>
@@ -118,6 +129,11 @@ export const mockRuleService: RuleService = {
           rule.content = input.content
           rule.status = input.status
           rule.updatedAt = 'たった今'
+          if (input.categoryId !== undefined) rule.categoryId = input.categoryId
+          if (input.projectId !== undefined) rule.projectId = input.projectId
+          if (input.priority !== undefined) rule.priority = input.priority
+          if (input.tags !== undefined) rule.tags = input.tags
+          if (input.aiPlatforms !== undefined) rule.aiPlatforms = input.aiPlatforms
           const history = ruleVersionHistory[id] ?? []
           history.unshift({
             id: crypto.randomUUID(),
@@ -131,7 +147,7 @@ export const mockRuleService: RuleService = {
           ruleVersionHistory[id] = history
           notifyRuleChanges()
         }
-        resolve(rule)
+        resolve(rule ? { ...rule } : undefined)
       }, 200),
     ),
   deleteRule: (id) =>

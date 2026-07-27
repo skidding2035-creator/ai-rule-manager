@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useLocation, useNavigate } from 'react-router-dom'
 import type { AIPlatformId, Category, Project, Rule, RulePriority } from '@/types'
 import { getRuleService } from '@/services/rules'
 import { getCategoryService } from '@/services/categories'
@@ -11,8 +11,8 @@ import { ApprovalReviewModal } from '@/components/rules/ApprovalReviewModal'
 import { aiPlatformLabels, priorityLabels } from '@/lib/colors'
 import { getNextRuleCode } from '@/lib/ruleStats'
 
-const ALL_PLATFORMS: AIPlatformId[] = ['chatgpt', 'claude', 'gemini', 'copilot', 'common']
-const SHARED_PROJECT_VALUE = '__shared__'
+export const ALL_PLATFORMS: AIPlatformId[] = ['chatgpt', 'claude', 'gemini', 'copilot', 'common']
+export const SHARED_PROJECT_VALUE = '__shared__'
 
 interface DraftState {
   title: string
@@ -24,7 +24,14 @@ interface DraftState {
   aiPlatforms: AIPlatformId[]
 }
 
-function buildInitialDraft(): DraftState {
+// Passed via navigate(..., { state: { duplicate } }) by RuleDetailPage's
+// "複製" button — a full or partial draft to prefill instead of the blank
+// defaults below.
+export interface NewRuleLocationState {
+  duplicate?: Partial<DraftState>
+}
+
+function buildInitialDraft(overrides?: Partial<DraftState>): DraftState {
   return {
     title: '',
     content: '',
@@ -39,12 +46,15 @@ function buildInitialDraft(): DraftState {
     priority: 'medium',
     tagsInput: '',
     aiPlatforms: [],
+    ...overrides,
   }
 }
 
 export function NewRulePage() {
   const navigate = useNavigate()
-  const [draft, setDraft] = useState<DraftState>(buildInitialDraft)
+  const location = useLocation()
+  const duplicateFrom = (location.state as NewRuleLocationState | null)?.duplicate
+  const [draft, setDraft] = useState<DraftState>(() => buildInitialDraft(duplicateFrom))
   const [confirming, setConfirming] = useState(false)
   const [rules, setRules] = useState<Rule[] | null>(null)
   const [categories, setCategories] = useState<Category[]>([])

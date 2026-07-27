@@ -1,17 +1,28 @@
 import { useEffect, useState } from 'react'
-import { useParams, Link } from 'react-router-dom'
-import { ArrowLeft, Pencil } from 'lucide-react'
-import type { Category, Project, Rule, RuleVersionEntry } from '@/types'
+import { useParams, useNavigate, Link } from 'react-router-dom'
+import { ArrowLeft, Copy, Pencil } from 'lucide-react'
+import type { AIPlatformId, Category, Project, Rule, RulePriority, RuleVersionEntry } from '@/types'
 import { getRuleService } from '@/services/rules'
 import { getCategoryService } from '@/services/categories'
 import { getProjectService } from '@/services/projects'
 import { TopBar } from '@/components/layout/TopBar'
 import { Card } from '@/components/ui/Card'
+import { Select } from '@/components/ui/Select'
 import { StatusPill } from '@/components/ui/StatusPill'
 import { PriorityPill } from '@/components/ui/PriorityPill'
 import { Modal } from '@/components/ui/Modal'
 import { ConfirmRegistrationModal } from '@/components/rules/ConfirmRegistrationModal'
-import { dotClasses, aiPlatformLabels } from '@/lib/colors'
+import { dotClasses, aiPlatformLabels, priorityLabels } from '@/lib/colors'
+import { ALL_PLATFORMS, SHARED_PROJECT_VALUE } from './NewRulePage'
+
+interface EditDraft {
+  content: string
+  categoryId: string
+  projectId: string // real project id, or SHARED_PROJECT_VALUE for 共通
+  priority: RulePriority
+  tagsInput: string
+  aiPlatforms: AIPlatformId[]
+}
 
 function bumpVersion(version: string): string {
   const match = version.match(/^v(\d+)\.(\d+)$/)
@@ -21,15 +32,32 @@ function bumpVersion(version: string): string {
 
 export function RuleDetailPage() {
   const { id } = useParams<{ id: string }>()
+  const navigate = useNavigate()
   const [rule, setRule] = useState<Rule | null | undefined>(null)
   const [versions, setVersions] = useState<RuleVersionEntry[]>([])
   const [categories, setCategories] = useState<Category[]>([])
   const [projects, setProjects] = useState<Project[]>([])
 
   const [isEditing, setIsEditing] = useState(false)
-  const [draftContent, setDraftContent] = useState('')
+  const [editDraft, setEditDraft] = useState<EditDraft>({
+    content: '',
+    categoryId: '',
+    projectId: SHARED_PROJECT_VALUE,
+    priority: 'medium',
+    tagsInput: '',
+    aiPlatforms: [],
+  })
   const [confirmOpen, setConfirmOpen] = useState(false)
   const [rollbackTarget, setRollbackTarget] = useState<RuleVersionEntry | null>(null)
+  const updateDraft = <K extends keyof EditDraft>(key: K, value: EditDraft[K]) =>
+    setEditDraft((d) => ({ ...d, [key]: value }))
+  const toggleDraftPlatform = (platform: AIPlatformId) =>
+    setEditDraft((d) => ({
+      ...d,
+      aiPlatforms: d.aiPlatforms.includes(platform)
+        ? d.aiPlatforms.filter((p) => p !== platform)
+        : [...d.aiPlatforms, platform],
+    }))
 
   useEffect(() => {
     if (!id) return
@@ -81,7 +109,14 @@ export function RuleDetailPage() {
   const nextVersion = bumpVersion(rule.version)
 
   const startEdit = () => {
-    setDraftContent(rule.content)
+    setEditDraft({
+      content: rule.content,
+      categoryId: rule.categoryId,
+      projectId: rule.projectId ?? SHARED_PROJECT_VALUE,
+      priority: rule.priority,
+      tagsInput: rule.tags.join(', '),
+      aiPlatforms: rule.aiPlatforms,
+    })
     setIsEditing(true)
   }
 
@@ -90,9 +125,48 @@ export function RuleDetailPage() {
     setConfirmOpen(false)
   }
 
+  const handleDuplicate = () => {
+    navigate('/rules/new', {
+      state: {
+        duplicate: {
+          title: `${rule.title}(コピー)`,
+          content: rule.content,
+          categoryId: rule.categoryId,
+          projectId: rule.projectId ?? SHARED_PROJECT_VALUE,
+          priority: rule.priority,
+          tagsInput: rule.tags.join(', '),
+          aiPlatforms: rule.aiPlatforms,
+        },
+      },
+    })
+  }
+
+  const draftResolvedProjectId = editDraft.projectId === SHARED_PROJECT_VALUE ? null : editDraft.projectId
+  const draftTags = editDraft.tagsInput
+    .split(',')
+    .map((t) => t.trim())
+    .filter(Boolean)
+  const hasChanges =
+    editDraft.content !== rule.content ||
+    editDraft.categoryId !== rule.categoryId ||
+    draftResolvedProjectId !== rule.projectId ||
+    editDraft.priority !== rule.priority ||
+    draftTags.join(',') !== rule.tags.join(',') ||
+    [...editDraft.aiPlatforms].sort().join(',') !== [...rule.aiPlatforms].sort().join(',')
+
   const handleApprove = () => {
     getRuleService()
-      .updateRuleContent(rule.id, { version: nextVersion, content: draftContent, status: 'active', comment: '内容を編集' })
+      .updateRuleContent(rule.id, {
+        version: nextVersion,
+        content: editDraft.content,
+        status: 'active',
+        comment: '内容を編集',
+        categoryId: editDraft.categoryId,
+        projectId: draftResolvedProjectId,
+        priority: editDraft.priority,
+        tags: draftTags,
+        aiPlatforms: editDraft.aiPlatforms,
+      })
       .then((updated) => {
         if (updated) setRule(updated)
         return getRuleService().getRuleVersions(rule.id)
@@ -133,13 +207,22 @@ export function RuleDetailPage() {
         subtitle={category?.name}
         right={
           !isEditing && (
-            <button
-              onClick={startEdit}
-              className="flex items-center gap-1.5 rounded-lg bg-accent-blue px-4 py-2 text-sm font-medium text-white hover:bg-blue-600"
-            >
-              <Pencil className="h-4 w-4" />
-              編集
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={handleDuplicate}
+                className="flex items-center gap-1.5 rounded-lg border border-border px-4 py-2 text-sm font-medium text-gray-300 hover:border-gray-600"
+              >
+                <Copy className="h-4 w-4" />
+                複製
+              </button>
+              <button
+                onClick={startEdit}
+                className="flex items-center gap-1.5 rounded-lg bg-accent-blue px-4 py-2 text-sm font-medium text-white hover:bg-blue-600"
+              >
+                <Pencil className="h-4 w-4" />
+                編集
+              </button>
+            </div>
           )
         }
       />
@@ -163,16 +246,38 @@ export function RuleDetailPage() {
               </div>
               <div>
                 <p className="text-xs text-gray-500">優先度</p>
-                <div className="mt-1">
-                  <PriorityPill priority={rule.priority} />
-                </div>
+                {isEditing ? (
+                  <div className="mt-1.5">
+                    <Select
+                      ariaLabel="優先度"
+                      value={editDraft.priority}
+                      onChange={(v) => updateDraft('priority', v as RulePriority)}
+                      options={Object.entries(priorityLabels).map(([value, label]) => ({ value, label }))}
+                    />
+                  </div>
+                ) : (
+                  <div className="mt-1">
+                    <PriorityPill priority={rule.priority} />
+                  </div>
+                )}
               </div>
               <div>
                 <p className="text-xs text-gray-500">カテゴリ</p>
-                <p className="mt-1.5 flex items-center gap-1.5 text-gray-200">
-                  <span className={`h-2 w-2 rounded-full ${dotClasses[category?.color ?? 'gray']}`} />
-                  {category?.name ?? rule.categoryId}
-                </p>
+                {isEditing ? (
+                  <div className="mt-1.5">
+                    <Select
+                      ariaLabel="カテゴリ"
+                      value={editDraft.categoryId}
+                      onChange={(v) => updateDraft('categoryId', v)}
+                      options={categories.map((c) => ({ value: c.id, label: c.name }))}
+                    />
+                  </div>
+                ) : (
+                  <p className="mt-1.5 flex items-center gap-1.5 text-gray-200">
+                    <span className={`h-2 w-2 rounded-full ${dotClasses[category?.color ?? 'gray']}`} />
+                    {category?.name ?? rule.categoryId}
+                  </p>
+                )}
               </div>
               <div>
                 <p className="text-xs text-gray-500">バージョン / 更新日時</p>
@@ -182,36 +287,75 @@ export function RuleDetailPage() {
               </div>
               <div>
                 <p className="text-xs text-gray-500">プロジェクト</p>
-                <p className="mt-1.5 flex items-center gap-1.5 text-gray-200">
-                  {project ? (
-                    <>
-                      <span className={`h-2 w-2 rounded-full ${dotClasses[project.color]}`} />
-                      {project.name}
-                    </>
-                  ) : (
-                    '共通'
-                  )}
-                </p>
+                {isEditing ? (
+                  <div className="mt-1.5">
+                    <Select
+                      ariaLabel="プロジェクト"
+                      value={editDraft.projectId}
+                      onChange={(v) => updateDraft('projectId', v)}
+                      options={[
+                        { value: SHARED_PROJECT_VALUE, label: '共通(全プロジェクトに適用)' },
+                        ...projects.map((p) => ({ value: p.id, label: p.name })),
+                      ]}
+                    />
+                  </div>
+                ) : (
+                  <p className="mt-1.5 flex items-center gap-1.5 text-gray-200">
+                    {project ? (
+                      <>
+                        <span className={`h-2 w-2 rounded-full ${dotClasses[project.color]}`} />
+                        {project.name}
+                      </>
+                    ) : (
+                      '共通'
+                    )}
+                  </p>
+                )}
               </div>
               <div>
                 <p className="text-xs text-gray-500">対応AI</p>
-                <div className="mt-1.5 flex flex-wrap gap-1.5">
-                  {rule.aiPlatforms.map((ai) => (
-                    <span key={ai} className="rounded-md bg-white/5 px-2 py-0.5 text-xs text-gray-300">
-                      {aiPlatformLabels[ai]}
-                    </span>
-                  ))}
-                </div>
+                {isEditing ? (
+                  <div className="mt-1.5 flex flex-wrap gap-3">
+                    {ALL_PLATFORMS.map((platform) => (
+                      <label key={platform} className="flex items-center gap-1.5 text-sm text-gray-300">
+                        <input
+                          type="checkbox"
+                          checked={editDraft.aiPlatforms.includes(platform)}
+                          onChange={() => toggleDraftPlatform(platform)}
+                          className="h-4 w-4 rounded border-border accent-accent-blue"
+                        />
+                        {aiPlatformLabels[platform]}
+                      </label>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="mt-1.5 flex flex-wrap gap-1.5">
+                    {rule.aiPlatforms.map((ai) => (
+                      <span key={ai} className="rounded-md bg-white/5 px-2 py-0.5 text-xs text-gray-300">
+                        {aiPlatformLabels[ai]}
+                      </span>
+                    ))}
+                  </div>
+                )}
               </div>
               <div>
                 <p className="text-xs text-gray-500">タグ</p>
-                <div className="mt-1.5 flex flex-wrap gap-1.5">
-                  {rule.tags.map((tag) => (
-                    <span key={tag} className="rounded-md bg-white/5 px-2 py-0.5 text-xs text-gray-300">
-                      {tag}
-                    </span>
-                  ))}
-                </div>
+                {isEditing ? (
+                  <input
+                    value={editDraft.tagsInput}
+                    onChange={(e) => updateDraft('tagsInput', e.target.value)}
+                    placeholder="例: トーン, 確認フロー"
+                    className="mt-1.5 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-gray-200 placeholder:text-gray-600 outline-none focus:border-accent-blue"
+                  />
+                ) : (
+                  <div className="mt-1.5 flex flex-wrap gap-1.5">
+                    {rule.tags.map((tag) => (
+                      <span key={tag} className="rounded-md bg-white/5 px-2 py-0.5 text-xs text-gray-300">
+                        {tag}
+                      </span>
+                    ))}
+                  </div>
+                )}
               </div>
             </div>
           </Card>
@@ -220,8 +364,8 @@ export function RuleDetailPage() {
             {isEditing ? (
               <div>
                 <textarea
-                  value={draftContent}
-                  onChange={(e) => setDraftContent(e.target.value)}
+                  value={editDraft.content}
+                  onChange={(e) => updateDraft('content', e.target.value)}
                   rows={6}
                   className="w-full rounded-lg border border-border bg-background p-3 text-sm text-gray-200 outline-none focus:border-accent-blue"
                 />
@@ -231,7 +375,7 @@ export function RuleDetailPage() {
                   </button>
                   <button
                     onClick={() => setConfirmOpen(true)}
-                    disabled={draftContent.trim() === '' || draftContent === rule.content}
+                    disabled={editDraft.content.trim() === '' || !hasChanges}
                     className="rounded-lg bg-accent-blue px-4 py-2 text-sm font-medium text-white hover:bg-blue-600 disabled:cursor-not-allowed disabled:opacity-40"
                   >
                     変更を確認
@@ -276,7 +420,7 @@ export function RuleDetailPage() {
         currentVersion={rule.version}
         nextVersion={nextVersion}
         oldContent={rule.content}
-        newContent={draftContent}
+        newContent={editDraft.content}
         onApprove={handleApprove}
         onReviseMore={handleReviseMore}
         onDiscard={handleDiscard}

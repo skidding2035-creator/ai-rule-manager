@@ -215,7 +215,19 @@ export const supabaseRuleService: RuleService = {
     const nowIso = new Date().toISOString()
     const { data, error } = await supabase!
       .from('rules')
-      .update({ version: input.version, content: input.content, status: input.status, updated_at: nowIso })
+      .update({
+        version: input.version,
+        content: input.content,
+        status: input.status,
+        updated_at: nowIso,
+        // Only included when the caller actually wants to change them, so a
+        // plain content edit or rollback doesn't overwrite metadata with undefined.
+        ...(input.categoryId !== undefined && { category_id: input.categoryId }),
+        ...(input.projectId !== undefined && { project_id: input.projectId }),
+        ...(input.priority !== undefined && { priority: input.priority }),
+        ...(input.tags !== undefined && { tags: input.tags }),
+        ...(input.aiPlatforms !== undefined && { ai_platforms: input.aiPlatforms }),
+      })
       .eq('id', id)
       .select()
       .maybeSingle()
