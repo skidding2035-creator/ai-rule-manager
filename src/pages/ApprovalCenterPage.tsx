@@ -10,6 +10,7 @@ import { Table, type TableColumn } from '@/components/ui/Table'
 import { PriorityPill } from '@/components/ui/PriorityPill'
 import { ApprovalReviewModal } from '@/components/rules/ApprovalReviewModal'
 import { dotClasses, aiPlatformLabels } from '@/lib/colors'
+import { useDataRefreshTick } from '@/hooks/useDataRefresh'
 
 // A "new" item is a brand-new rule proposal (rules.status === pending_approval);
 // a "revision" item is an AI-proposed content fix for an already-active rule
@@ -24,6 +25,7 @@ export function ApprovalCenterPage() {
   const [categories, setCategories] = useState<Category[]>([])
   const [projects, setProjects] = useState<Project[]>([])
   const [reviewingKey, setReviewingKey] = useState<string | null>(null)
+  const refreshTick = useDataRefreshTick()
 
   useEffect(() => {
     let cancelled = false
@@ -42,7 +44,7 @@ export function ApprovalCenterPage() {
     return () => {
       cancelled = true
     }
-  }, [])
+  }, [refreshTick])
 
   const reviewItems: ReviewItem[] = useMemo(() => {
     const newItems: ReviewItem[] = (rules?.filter((r) => r.status === 'pending_approval') ?? []).map((rule) => ({

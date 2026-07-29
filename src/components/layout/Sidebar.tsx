@@ -1,16 +1,17 @@
 import { useEffect, useState, useSyncExternalStore } from 'react'
 import { NavLink } from 'react-router-dom'
-import { Hexagon, ChevronDown, Check, Plus } from 'lucide-react'
+import { Hexagon, ChevronDown, Check, Plus, RefreshCw } from 'lucide-react'
 import clsx from 'clsx'
 import { navConfig } from '@/routes/navConfig'
-import { subscribeToConnectionChanges } from '@/mock/aiConnections'
+import { subscribeToConnectionChanges, notifyConnectionChanges } from '@/mock/aiConnections'
 import { syncStatus } from '@/mock/syncStatus'
-import { subscribeToRuleChanges } from '@/mock/rules'
+import { subscribeToRuleChanges, notifyRuleChanges } from '@/mock/rules'
 import { ALL_ACCENT_COLORS } from '@/mock/categories'
-import { subscribeToProjectChanges, SHARED_PROJECT_VALUE } from '@/mock/projects'
+import { subscribeToProjectChanges, notifyProjectChanges, SHARED_PROJECT_VALUE } from '@/mock/projects'
 import { getRuleService } from '@/services/rules'
 import { getSettingsService } from '@/services/settings'
 import { getProjectService } from '@/services/projects'
+import { triggerDataRefresh } from '@/hooks/useDataRefresh'
 import { Modal } from '@/components/ui/Modal'
 import { dotClasses, iconBadgeClasses } from '@/lib/colors'
 import { signOut } from '@/lib/auth'
@@ -27,6 +28,8 @@ export function Sidebar() {
   const [pendingApprovalCount, setPendingApprovalCount] = useState(0)
   const [connections, setConnections] = useState<AIConnection[]>([])
   const [projects, setProjects] = useState<Project[]>([])
+  const [refreshing, setRefreshing] = useState(false)
+  const [lastSyncedLabel, setLastSyncedLabel] = useState(syncStatus.lastSyncedAt)
 
   // Each of these fetches through the service layer (rather than reading a
   // mutated-in-place mock array directly) so this keeps working once the
@@ -112,6 +115,21 @@ export function Sidebar() {
       .createProject({ name: newName.trim(), color: newColor })
       .then((created) => getProjectService().setActiveProjectId(created.id))
     setCreateOpen(false)
+  }
+
+  // Data added outside this app (e.g. a rule proposed via the MCP server
+  // while this page was already open) doesn't reach any of the notify*
+  // buses below, since those only fire on in-app mutations — so this button
+  // fires all of them plus the generic refresh tick to force every open
+  // page to re-fetch from the service layer.
+  const handleRefresh = () => {
+    setRefreshing(true)
+    notifyRuleChanges()
+    notifyProjectChanges()
+    notifyConnectionChanges()
+    triggerDataRefresh()
+    setLastSyncedLabel('たった今')
+    setTimeout(() => setRefreshing(false), 500)
   }
 
   return (
@@ -233,11 +251,21 @@ export function Sidebar() {
         </div>
 
         <div className="mt-6 px-3">
-          <p className="mb-2 text-[11px] font-semibold tracking-wide text-gray-500">同期ステータス</p>
+          <div className="mb-2 flex items-center justify-between">
+            <p className="text-[11px] font-semibold tracking-wide text-gray-500">同期ステータス</p>
+            <button
+              onClick={handleRefresh}
+              disabled={refreshing}
+              title="最新のデータに更新"
+              className="rounded p-0.5 text-gray-500 hover:text-gray-200 disabled:cursor-wait"
+            >
+              <RefreshCw className={clsx('h-3.5 w-3.5', refreshing && 'animate-spin')} />
+            </button>
+          </div>
           <ul className="space-y-2 text-sm">
             <li className="flex items-center justify-between">
               <span className="text-gray-300">最終同期</span>
-              <span className="text-gray-500">{syncStatus.lastSyncedAt}</span>
+              <span className="text-gray-500">{lastSyncedLabel}</span>
             </li>
             <li className="flex items-center justify-between">
               <span className="text-gray-300">Supabase</span>

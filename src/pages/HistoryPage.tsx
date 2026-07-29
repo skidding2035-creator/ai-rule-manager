@@ -11,6 +11,7 @@ import { StatusPill } from '@/components/ui/StatusPill'
 import { Select } from '@/components/ui/Select'
 import { statusLabels } from '@/lib/colors'
 import { useActiveProjectId } from '@/hooks/useActiveProjectId'
+import { useDataRefreshTick } from '@/hooks/useDataRefresh'
 
 export function HistoryPage() {
   const navigate = useNavigate()
@@ -20,6 +21,7 @@ export function HistoryPage() {
   const [categoryFilter, setCategoryFilter] = useState('all')
   const [statusFilter, setStatusFilter] = useState('all')
   const activeProjectId = useActiveProjectId()
+  const refreshTick = useDataRefreshTick()
 
   useEffect(() => {
     let cancelled = false
@@ -31,7 +33,7 @@ export function HistoryPage() {
     return () => {
       cancelled = true
     }
-  }, [activeProjectId])
+  }, [activeProjectId, refreshTick])
 
   const filteredEntries = useMemo(() => {
     if (!entries) return []

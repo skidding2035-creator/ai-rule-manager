@@ -9,6 +9,7 @@ import { DonutChart } from '@/components/ui/charts/DonutChart'
 import { dotClasses, statusAccentColor, statusLabels } from '@/lib/colors'
 import { countByStatus, countByPriority, countByPlatform, countByCategory, type CategoryBreakdown } from '@/lib/ruleStats'
 import { useActiveProjectId } from '@/hooks/useActiveProjectId'
+import { useDataRefreshTick } from '@/hooks/useDataRefresh'
 
 function BarList({ items, max }: { items: { key: string; label: string; count: number }[]; max: number }) {
   return (
@@ -32,6 +33,7 @@ export function AnalyticsPage() {
   const [rules, setRules] = useState<Rule[] | null>(null)
   const [categories, setCategories] = useState<Category[]>([])
   const activeProjectId = useActiveProjectId()
+  const refreshTick = useDataRefreshTick()
 
   useEffect(() => {
     let cancelled = false
@@ -43,7 +45,7 @@ export function AnalyticsPage() {
     return () => {
       cancelled = true
     }
-  }, [activeProjectId])
+  }, [activeProjectId, refreshTick])
 
   const statusCounts = useMemo(() => (rules ? countByStatus(rules) : null), [rules])
   const priorityCounts = useMemo(() => (rules ? countByPriority(rules) : null), [rules])

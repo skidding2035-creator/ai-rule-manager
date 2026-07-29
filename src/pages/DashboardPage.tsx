@@ -14,10 +14,12 @@ import { StatusHistoryCard } from '@/components/dashboard/StatusHistoryCard'
 import { AnnouncementsCard } from '@/components/dashboard/AnnouncementsCard'
 import { QuickActionsCard } from '@/components/dashboard/QuickActionsCard'
 import { useActiveProjectId } from '@/hooks/useActiveProjectId'
+import { useDataRefreshTick } from '@/hooks/useDataRefresh'
 
 export function DashboardPage() {
   const [summary, setSummary] = useState<DashboardSummary | null>(null)
   const activeProjectId = useActiveProjectId()
+  const refreshTick = useDataRefreshTick()
 
   useEffect(() => {
     let cancelled = false
@@ -31,7 +33,8 @@ export function DashboardPage() {
     }
     // Re-fetch when the sidebar's active project changes, so the KPIs stay
     // in sync with whichever project (or 全体共通) is currently selected.
-  }, [activeProjectId])
+    // Also re-fetch on a manual sidebar refresh (refreshTick).
+  }, [activeProjectId, refreshTick])
 
   if (!summary) {
     return (

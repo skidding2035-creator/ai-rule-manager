@@ -11,6 +11,7 @@ import { Toggle } from '@/components/ui/Toggle'
 import { Modal } from '@/components/ui/Modal'
 import { countByPlatform } from '@/lib/ruleStats'
 import { dotClasses, iconBadgeClasses } from '@/lib/colors'
+import { useDataRefreshTick } from '@/hooks/useDataRefresh'
 
 interface ProjectFormState {
   mode: 'create' | 'edit'
@@ -26,6 +27,7 @@ export function SettingsPage() {
   const [projectForm, setProjectForm] = useState<ProjectFormState | null>(null)
   const [deleteTarget, setDeleteTarget] = useState<Project | null>(null)
   const [deleteError, setDeleteError] = useState<string | null>(null)
+  const refreshTick = useDataRefreshTick()
 
   useEffect(() => {
     let cancelled = false
@@ -42,7 +44,7 @@ export function SettingsPage() {
     return () => {
       cancelled = true
     }
-  }, [])
+  }, [refreshTick])
 
   const toggleConnection = (id: string) => {
     // The mock service resolves the same shared array it just mutated, so use

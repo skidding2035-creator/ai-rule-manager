@@ -9,11 +9,13 @@ import { statusLabels, priorityLabels, aiPlatformLabels } from '@/lib/colors'
 import { countByStatus, countByPriority, countByPlatform, countByCategory } from '@/lib/ruleStats'
 import { rowsToCsv, downloadCsv } from '@/lib/csv'
 import { useActiveProjectId } from '@/hooks/useActiveProjectId'
+import { useDataRefreshTick } from '@/hooks/useDataRefresh'
 
 export function ReportsPage() {
   const [rules, setRules] = useState<Rule[] | null>(null)
   const [categories, setCategories] = useState<Category[]>([])
   const activeProjectId = useActiveProjectId()
+  const refreshTick = useDataRefreshTick()
 
   useEffect(() => {
     let cancelled = false
@@ -25,7 +27,7 @@ export function ReportsPage() {
     return () => {
       cancelled = true
     }
-  }, [activeProjectId])
+  }, [activeProjectId, refreshTick])
 
   const exportRuleList = () => {
     if (!rules) return

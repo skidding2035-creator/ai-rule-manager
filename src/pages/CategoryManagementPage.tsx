@@ -9,6 +9,7 @@ import { Card } from '@/components/ui/Card'
 import { Modal } from '@/components/ui/Modal'
 import { dotClasses, iconBadgeClasses } from '@/lib/colors'
 import { computeCategoryStats } from '@/lib/ruleStats'
+import { useDataRefreshTick } from '@/hooks/useDataRefresh'
 
 interface FormState {
   mode: 'create' | 'edit'
@@ -24,6 +25,7 @@ export function CategoryManagementPage() {
   const [formState, setFormState] = useState<FormState | null>(null)
   const [deleteTarget, setDeleteTarget] = useState<Category | null>(null)
   const [deleteError, setDeleteError] = useState<string | null>(null)
+  const refreshTick = useDataRefreshTick()
 
   useEffect(() => {
     let cancelled = false
@@ -35,7 +37,7 @@ export function CategoryManagementPage() {
     return () => {
       cancelled = true
     }
-  }, [])
+  }, [refreshTick])
 
   const stats = useMemo(() => {
     if (!categories || !rules) return null
