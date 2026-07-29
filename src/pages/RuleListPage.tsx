@@ -1,9 +1,11 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { Plus } from 'lucide-react'
-import type { Category, Rule } from '@/types'
+import type { Category, Project, Rule } from '@/types'
 import { getRuleService } from '@/services/rules'
 import { getCategoryService } from '@/services/categories'
+import { getProjectService } from '@/services/projects'
+import { SHARED_PROJECT_VALUE } from '@/mock/projects'
 import { TopBar } from '@/components/layout/TopBar'
 import { Card } from '@/components/ui/Card'
 import { Table, type TableColumn } from '@/components/ui/Table'
@@ -22,6 +24,7 @@ interface RuleListFilters {
   statusFilter: string
   priorityFilter: string
   aiFilter: string
+  projectFilter: string
 }
 
 const defaultFilters: RuleListFilters = {
@@ -30,6 +33,7 @@ const defaultFilters: RuleListFilters = {
   statusFilter: 'all',
   priorityFilter: 'all',
   aiFilter: 'all',
+  projectFilter: 'all',
 }
 
 // Module-level so filter/search selections survive leaving this page (e.g. to
@@ -40,9 +44,10 @@ export function RuleListPage() {
   const navigate = useNavigate()
   const [rules, setRules] = useState<Rule[] | null>(null)
   const [categories, setCategories] = useState<Category[]>([])
+  const [projects, setProjects] = useState<Project[]>([])
   const [filters, setFilters] = useState<RuleListFilters>(persistedFilters)
   const [deleteTarget, setDeleteTarget] = useState<Rule | null>(null)
-  const { search, categoryFilter, statusFilter, priorityFilter, aiFilter } = filters
+  const { search, categoryFilter, statusFilter, priorityFilter, aiFilter, projectFilter } = filters
   const activeProjectId = useActiveProjectId()
   const refreshTick = useDataRefreshTick()
 
@@ -57,11 +62,14 @@ export function RuleListPage() {
 
   useEffect(() => {
     let cancelled = false
-    Promise.all([getRuleService().getRules(), getCategoryService().getCategories()]).then(([ruleData, categoryData]) => {
-      if (cancelled) return
-      setRules(ruleData)
-      setCategories(categoryData)
-    })
+    Promise.all([getRuleService().getRules(), getCategoryService().getCategories(), getProjectService().getProjects()]).then(
+      ([ruleData, categoryData, projectData]) => {
+        if (cancelled) return
+        setRules(ruleData)
+        setCategories(categoryData)
+        setProjects(projectData)
+      },
+    )
     return () => {
       cancelled = true
     }
@@ -72,6 +80,7 @@ export function RuleListPage() {
 
   const categoryName = (id: string) => categories.find((c) => c.id === id)?.name ?? id
   const categoryColor = (id: string) => categories.find((c) => c.id === id)?.color ?? 'gray'
+  const projectName = (id: string | null) => (id === null ? '共通' : (projects.find((p) => p.id === id)?.name ?? id))
 
   const versionValue = (version: string) => {
     const match = version.match(/^v(\d+)\.(\d+)$/)
@@ -90,13 +99,17 @@ export function RuleListPage() {
       if (statusFilter !== 'all' && rule.status !== statusFilter) return false
       if (priorityFilter !== 'all' && rule.priority !== priorityFilter) return false
       if (aiFilter !== 'all' && !rule.aiPlatforms.includes(aiFilter as Rule['aiPlatforms'][number])) return false
+      if (projectFilter !== 'all') {
+        const wantsShared = projectFilter === SHARED_PROJECT_VALUE
+        if (wantsShared ? rule.projectId !== null : rule.projectId !== projectFilter) return false
+      }
       if (q) {
         const haystack = `${rule.code} ${rule.title} ${rule.tags.join(' ')}`.toLowerCase()
         if (!haystack.includes(q)) return false
       }
       return true
     })
-  }, [rules, search, categoryFilter, statusFilter, priorityFilter, aiFilter])
+  }, [rules, search, categoryFilter, statusFilter, priorityFilter, aiFilter, projectFilter])
 
   const restoreRule = (id: string) => {
     getRuleService()
@@ -163,6 +176,13 @@ export function RuleListPage() {
           ))}
         </div>
       ),
+    },
+    {
+      key: 'project',
+      header: 'プロジェクト',
+      render: (r) => projectName(r.projectId),
+      className: 'whitespace-nowrap',
+      sortValue: (r) => projectName(r.projectId),
     },
     {
       key: 'version',
@@ -239,7 +259,10 @@ export function RuleListPage() {
           onPriorityChange={(v) => updateFilter('priorityFilter', v)}
           aiFilter={aiFilter}
           onAiChange={(v) => updateFilter('aiFilter', v)}
+          projectFilter={projectFilter}
+          onProjectChange={(v) => updateFilter('projectFilter', v)}
           categories={categories}
+          projects={projects}
           onReset={resetFilters}
         />
 

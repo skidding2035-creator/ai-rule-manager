@@ -1,7 +1,8 @@
 import { Search, RotateCcw } from 'lucide-react'
-import type { Category } from '@/types'
+import type { Category, Project } from '@/types'
 import { Select } from '@/components/ui/Select'
 import { statusLabels, priorityLabels, aiPlatformLabels } from '@/lib/colors'
+import { SHARED_PROJECT_VALUE } from '@/mock/projects'
 
 interface FilterBarProps {
   search: string
@@ -14,7 +15,10 @@ interface FilterBarProps {
   onPriorityChange: (value: string) => void
   aiFilter: string
   onAiChange: (value: string) => void
+  projectFilter: string
+  onProjectChange: (value: string) => void
   categories: Category[]
+  projects: Project[]
   onReset: () => void
 }
 
@@ -29,7 +33,10 @@ export function FilterBar({
   onPriorityChange,
   aiFilter,
   onAiChange,
+  projectFilter,
+  onProjectChange,
   categories,
+  projects,
   onReset,
 }: FilterBarProps) {
   return (
@@ -81,6 +88,16 @@ export function FilterBar({
         options={[
           { value: 'all', label: 'すべてのAI' },
           ...Object.entries(aiPlatformLabels).map(([value, label]) => ({ value, label })),
+        ]}
+      />
+      <Select
+        ariaLabel="プロジェクト"
+        value={projectFilter}
+        onChange={onProjectChange}
+        options={[
+          { value: 'all', label: 'すべてのプロジェクト' },
+          { value: SHARED_PROJECT_VALUE, label: '共通のみ' },
+          ...projects.map((p) => ({ value: p.id, label: p.name })),
         ]}
       />
     </div>
