@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { useParams, useNavigate, Link } from 'react-router-dom'
+import { useParams, useNavigate, useLocation, Link } from 'react-router-dom'
 import { ArrowLeft, Copy, Pencil } from 'lucide-react'
 import type { AIPlatformId, Category, Project, Rule, RulePriority, RuleVersionEntry } from '@/types'
 import { getRuleService } from '@/services/rules'
@@ -33,6 +33,7 @@ function bumpVersion(version: string): string {
 export function RuleDetailPage() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
+  const location = useLocation()
   const [rule, setRule] = useState<Rule | null | undefined>(null)
   const [versions, setVersions] = useState<RuleVersionEntry[]>([])
   const [categories, setCategories] = useState<Category[]>([])
@@ -78,6 +79,25 @@ export function RuleDetailPage() {
       cancelled = true
     }
   }, [id])
+
+  // Approval Center's "修正してから登録" (revise then register) navigates
+  // here with this flag so the user lands straight in edit mode instead of
+  // the read-only view, where the register flow (変更を確認 button) isn't
+  // visible at all — replace the history entry so back/forward doesn't
+  // re-trigger it.
+  useEffect(() => {
+    if (!rule || !location.state?.autoEdit) return
+    setEditDraft({
+      content: rule.content,
+      categoryId: rule.categoryId,
+      projectId: rule.projectId ?? SHARED_PROJECT_VALUE,
+      priority: rule.priority,
+      tagsInput: rule.tags.join(', '),
+      aiPlatforms: rule.aiPlatforms,
+    })
+    setIsEditing(true)
+    navigate(location.pathname, { replace: true, state: null })
+  }, [rule])
 
   if (rule === null) {
     return (

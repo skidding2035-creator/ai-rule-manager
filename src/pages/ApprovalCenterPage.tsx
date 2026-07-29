@@ -185,7 +185,7 @@ export function ApprovalCenterPage() {
         onReviseMore={
           reviewingItem?.kind === 'new'
             ? () => {
-                if (reviewingRule) navigate(`/rules/${reviewingRule.id}`)
+                if (reviewingRule) navigate(`/rules/${reviewingRule.id}`, { state: { autoEdit: true } })
               }
             : undefined
         }
