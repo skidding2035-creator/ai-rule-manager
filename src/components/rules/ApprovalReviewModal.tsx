@@ -1,6 +1,7 @@
 import type { Category, Project, Rule, RuleVersionEntry } from '@/types'
 import { Modal } from '@/components/ui/Modal'
 import { PriorityPill } from '@/components/ui/PriorityPill'
+import { StatusPill } from '@/components/ui/StatusPill'
 import { dotClasses, aiPlatformLabels } from '@/lib/colors'
 
 interface ApprovalReviewModalProps {
@@ -65,20 +66,64 @@ export function ApprovalReviewModal({
             <p className="text-lg font-semibold text-gray-100">
               {rule.code} {rule.title}
             </p>
-            <p className="mt-1 flex items-center gap-1.5 text-sm text-gray-400">
-              <span className={`h-2 w-2 rounded-full ${dotClasses[category?.color ?? 'gray']}`} />
-              {category?.name ?? rule.categoryId} ・ {revision ? `${rule.version} → ${revision.version}` : rule.version}
-              {project !== undefined && <> ・ {project ? project.name : '共通'}</>}
-            </p>
           </div>
 
-          <div className="flex flex-wrap items-center gap-2">
-            <PriorityPill priority={rule.priority} />
-            {rule.aiPlatforms.map((ai) => (
-              <span key={ai} className="rounded-md bg-white/5 px-2 py-0.5 text-xs text-gray-300">
-                {aiPlatformLabels[ai]}
-              </span>
-            ))}
+          <div className="grid grid-cols-2 gap-y-3 rounded-lg border border-border bg-background p-3 text-sm">
+            <div>
+              <p className="text-xs text-gray-500">ステータス</p>
+              <div className="mt-1">
+                <StatusPill status={rule.status} />
+              </div>
+            </div>
+            <div>
+              <p className="text-xs text-gray-500">優先度</p>
+              <div className="mt-1">
+                <PriorityPill priority={rule.priority} />
+              </div>
+            </div>
+            <div>
+              <p className="text-xs text-gray-500">カテゴリ</p>
+              <p className="mt-1.5 flex items-center gap-1.5 text-gray-200">
+                <span className={`h-2 w-2 shrink-0 rounded-full ${dotClasses[category?.color ?? 'gray']}`} />
+                {category?.name ?? rule.categoryId}
+              </p>
+            </div>
+            <div>
+              <p className="text-xs text-gray-500">バージョン / 更新日時</p>
+              <p className="mt-1.5 text-gray-200">
+                {revision ? `${rule.version} → ${revision.version}` : rule.version} ・ {rule.updatedAt}
+              </p>
+            </div>
+            {project !== undefined && (
+              <div>
+                <p className="text-xs text-gray-500">プロジェクト</p>
+                <p className="mt-1.5 text-gray-200">{project ? project.name : '共通'}</p>
+              </div>
+            )}
+            <div>
+              <p className="text-xs text-gray-500">対応AI</p>
+              <div className="mt-1.5 flex flex-wrap gap-1.5">
+                {rule.aiPlatforms.map((ai) => (
+                  <span key={ai} className="rounded-md bg-white/5 px-2 py-0.5 text-xs text-gray-300">
+                    {aiPlatformLabels[ai]}
+                  </span>
+                ))}
+              </div>
+            </div>
+            <div className="col-span-2">
+              <p className="text-xs text-gray-500">タグ</p>
+              <div className="mt-1.5 flex flex-wrap gap-1.5">
+                {rule.tags.length > 0 ? (
+                  rule.tags.map((tag) => (
+                    <span key={tag} className="rounded-md bg-white/5 px-2 py-0.5 text-xs text-gray-300">
+                      {tag}
+                    </span>
+                  ))
+                ) : (
+                  <span className="text-gray-500">なし</span>
+                )}
+              </div>
+            </div>
           </div>
 
           {revision ? (

@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useParams, useNavigate, useLocation, Link } from 'react-router-dom'
 import { ArrowLeft, Copy, Pencil } from 'lucide-react'
-import type { AIPlatformId, Category, Project, Rule, RulePriority, RuleVersionEntry } from '@/types'
+import type { AIPlatformId, Category, Project, Rule, RulePriority, RuleStatus, RuleVersionEntry } from '@/types'
 import { getRuleService } from '@/services/rules'
 import { getCategoryService } from '@/services/categories'
 import { getProjectService } from '@/services/projects'
@@ -12,11 +12,12 @@ import { StatusPill } from '@/components/ui/StatusPill'
 import { PriorityPill } from '@/components/ui/PriorityPill'
 import { Modal } from '@/components/ui/Modal'
 import { ConfirmRegistrationModal } from '@/components/rules/ConfirmRegistrationModal'
-import { dotClasses, aiPlatformLabels, priorityLabels } from '@/lib/colors'
+import { dotClasses, aiPlatformLabels, priorityLabels, statusLabels } from '@/lib/colors'
 import { ALL_PLATFORMS, SHARED_PROJECT_VALUE } from './NewRulePage'
 
 interface EditDraft {
   content: string
+  status: RuleStatus
   categoryId: string
   projectId: string // real project id, or SHARED_PROJECT_VALUE for 共通
   priority: RulePriority
@@ -42,6 +43,7 @@ export function RuleDetailPage() {
   const [isEditing, setIsEditing] = useState(false)
   const [editDraft, setEditDraft] = useState<EditDraft>({
     content: '',
+    status: 'draft',
     categoryId: '',
     projectId: SHARED_PROJECT_VALUE,
     priority: 'medium',
@@ -89,6 +91,7 @@ export function RuleDetailPage() {
     if (!rule || !location.state?.autoEdit) return
     setEditDraft({
       content: rule.content,
+      status: rule.status,
       categoryId: rule.categoryId,
       projectId: rule.projectId ?? SHARED_PROJECT_VALUE,
       priority: rule.priority,
@@ -131,6 +134,7 @@ export function RuleDetailPage() {
   const startEdit = () => {
     setEditDraft({
       content: rule.content,
+      status: rule.status,
       categoryId: rule.categoryId,
       projectId: rule.projectId ?? SHARED_PROJECT_VALUE,
       priority: rule.priority,
@@ -168,6 +172,7 @@ export function RuleDetailPage() {
     .filter(Boolean)
   const hasChanges =
     editDraft.content !== rule.content ||
+    editDraft.status !== rule.status ||
     editDraft.categoryId !== rule.categoryId ||
     draftResolvedProjectId !== rule.projectId ||
     editDraft.priority !== rule.priority ||
@@ -179,7 +184,7 @@ export function RuleDetailPage() {
       .updateRuleContent(rule.id, {
         version: nextVersion,
         content: editDraft.content,
-        status: 'active',
+        status: editDraft.status,
         comment: '内容を編集',
         categoryId: editDraft.categoryId,
         projectId: draftResolvedProjectId,
@@ -260,9 +265,20 @@ export function RuleDetailPage() {
             <div className="grid grid-cols-2 gap-y-4 text-sm">
               <div>
                 <p className="text-xs text-gray-500">ステータス</p>
-                <div className="mt-1">
-                  <StatusPill status={rule.status} />
-                </div>
+                {isEditing ? (
+                  <div className="mt-1.5">
+                    <Select
+                      ariaLabel="ステータス"
+                      value={editDraft.status}
+                      onChange={(v) => updateDraft('status', v as RuleStatus)}
+                      options={Object.entries(statusLabels).map(([value, label]) => ({ value, label }))}
+                    />
+                  </div>
+                ) : (
+                  <div className="mt-1">
+                    <StatusPill status={rule.status} />
+                  </div>
+                )}
               </div>
               <div>
                 <p className="text-xs text-gray-500">優先度</p>
