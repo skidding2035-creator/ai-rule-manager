@@ -4,9 +4,13 @@ name: Keep MCP server awake
 # traffic, and the next request then takes 50+ seconds while it restarts.
 # This pings the server every 10 minutes — comfortably inside that window —
 # so it never sits idle long enough to spin down, even if nobody uses
-# ChatGPT/Claude against it for hours. No -f flag: any HTTP response (even
-# a 401/404) proves the server is awake, so we don't want curl to "fail"
-# the job just because the ping itself wasn't an authenticated request.
+# ChatGPT/Claude against it for hours.
+#
+# GitHub Actions' schedule trigger is best-effort and can slip well past the
+# configured interval on a low-traffic repo (observed gaps of 30min-2h+ in
+# practice), so this is a free backup only — an external monitor (e.g.
+# UptimeRobot hitting /health every 5 minutes on real wall-clock time) is the
+# primary defense. See mcp-server/README.md.
 on:
   schedule:
     - cron: '*/10 * * * *'
@@ -18,4 +22,4 @@ jobs:
     steps:
       - name: Ping MCP server
         run: |
-          curl -s -o /dev/null -w "status: %{http_code}\n" https://ai-rule-manager-1.onrender.com/mcp
+          curl -sf -o /dev/null -w "status: %{http_code}\n" https://ai-rule-manager-1.onrender.com/health

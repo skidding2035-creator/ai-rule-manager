@@ -29,6 +29,14 @@ app.use(
   }),
 )
 
+// Unauthenticated on purpose — external uptime monitors (UptimeRobot etc.)
+// need a path that reliably returns 200 with no token, since every /mcp
+// request (even a valid one without an established session) returns a
+// non-2xx status and would misreport the service as down.
+app.get('/health', (req, res) => {
+  res.status(200).json({ status: 'ok' })
+})
+
 function safeEqual(a, b) {
   const bufA = Buffer.from(a)
   const bufB = Buffer.from(b)

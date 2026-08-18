@@ -57,7 +57,9 @@ This repo is deployed as a Render Web Service at `https://ai-rule-manager-1.onre
 
 In ChatGPT: Settings → Connectors → Add custom connector → paste the URL **with the token appended**: `https://ai-rule-manager-1.onrender.com/mcp?token=<your MCP_SHARED_SECRET>` (auth-type: "認証なし"/none — the token rides in the URL itself). This only needs to be entered once.
 
-Render's free tier spins the service down after ~15 minutes of no traffic (first request after that takes 50+ seconds). `.github/workflows/keep-mcp-server-awake.yml` pings it every 10 minutes to prevent that — no action needed unless that workflow is disabled.
+Render's free tier spins the service down after ~15 minutes of no traffic (first request after that takes 50+ seconds). `.github/workflows/keep-mcp-server-awake.yml` pings it every 10 minutes as a free backup, but GitHub Actions' schedule trigger is best-effort and can slip well past that interval on a low-traffic repo — so the primary defense is an external uptime monitor (e.g. [UptimeRobot](https://uptimerobot.com), free tier) hitting `https://ai-rule-manager-1.onrender.com/health` every 5 minutes on real wall-clock time. `/health` is unauthenticated and always returns `200 {"status":"ok"}`, so it won't misreport as down the way pinging `/mcp` directly would (that always returns a non-2xx status without a valid session).
+
+The same applies to Supabase: the free plan pauses a project after ~7 days with no activity, and `.github/workflows/keep-supabase-awake.yml` alone wasn't enough to prevent that in practice. Add a second UptimeRobot monitor for `<VITE_SUPABASE_URL>/rest/v1/categories?select=id&limit=1&apikey=<VITE_SUPABASE_ANON_KEY>` (the anon key is safe to put in a URL — it's the same public key already shipped in the deployed frontend's JS bundle, protected by Row Level Security rather than secrecy).
 
 ### Fallback: local + ngrok tunnel (this machine only)
 
